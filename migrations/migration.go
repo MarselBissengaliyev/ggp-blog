@@ -1,18 +1,34 @@
 package migrations
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type Migration struct {
 	db *gorm.DB
 }
 
 func Migrate(db *gorm.DB) error {
-	migration := Migration{
-		db: db,
-	}
+	migrations := []func() error{}
 
-	if err := migration.MigrateUsers(); err != nil {
-		return err
+	migration := Migration{}
+
+	migrations = append(
+		migrations,
+		migration.MigrateUsers,
+		migration.MigrateTokens,
+		migration.MigrateComments,
+		migration.MigrateCommentReactions,
+		migration.MigratePosts,
+		migration.MigratePostReactions,
+		migration.MigrateReports,
+		migration.MigrateTags,
+	)
+
+	for _, m := range migrations {
+		if err := m(); err != nil {
+			return err
+		}
 	}
 
 	return nil
