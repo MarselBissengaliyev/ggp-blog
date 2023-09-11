@@ -1,6 +1,6 @@
 package models
 
-type PostModel struct {
+type Post struct {
 	Title       string         `json:"title"`
 	Description string         `json:"description"`
 	Content     string         `json:"content"`
