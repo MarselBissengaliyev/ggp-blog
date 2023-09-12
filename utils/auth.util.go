@@ -14,3 +14,16 @@ func HashPassword(password string) string {
 
 	return string(hashedPassword)
 }
+
+func VerifyPassword(userPassword string, providedPassword string) (bool, string) {
+	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(providedPassword))
+	isValid := true
+	msg := ""
+
+	if err != nil {
+		msg = "email or password is incorrect"
+		isValid = false
+	}
+
+	return isValid, msg
+}
