@@ -1,7 +1,11 @@
 package repositories
 
-import "gorm.io/gorm"
+import (
+	"github.com/MarselBissengaliyev/ggp-blog/config"
+	"gorm.io/gorm"
+)
 
 type Repository struct {
-	db *gorm.DB
+	DB *gorm.DB
+	Config *config.Config
 }
