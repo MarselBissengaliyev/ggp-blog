@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/MarselBissengaliyev/ggp-blog/config"
 	"github.com/MarselBissengaliyev/ggp-blog/models"
 	"github.com/golang-jwt/jwt"
 	"gorm.io/gorm"
@@ -67,7 +68,7 @@ func CreateTokens(
 	userAgent string,
 	userId uint,
 	db *gorm.DB,
-) (error, models.Token) {
+) (models.Token, error) {
 	token := models.Token{
 		AccessToken:  signedToken,
 		RefreshToken: signedRefreshToken,
@@ -76,17 +77,47 @@ func CreateTokens(
 	}
 
 	if err := db.Create(&token).Error; err != nil {
-		return err, token
+		return token, err
 	}
 
-	return nil, token
+	return token, nil
 }
 
-func UpdateAllTokens(
-	signedToken string,
-	signedRefreshToken string,
-	userId uint,
-	db *gorm.DB,
-) {
-	db.Save(&models.Token{})
+func DeleteTokens(db *gorm.DB, uid uint, ua string) error {
+	if err := db.Delete(&models.Token{
+		UserId:    uid,
+		UserAgent: ua,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ValidateToken(signedToken string, config *config.Config) (claims *SignedDetails, msg string) {
+	token, err := jwt.ParseWithClaims(
+		signedToken,
+		&SignedDetails{},
+		func(t *jwt.Token) (interface{}, error) {
+			return []byte(config.Token_Secret), nil
+		},
+	)
+
+	if err != nil {
+		msg = err.Error()
+		return
+	}
+
+	claims, ok := token.Claims.(*SignedDetails)
+	if !ok {
+		msg = "the token is invalid"
+		return
+	}
+
+	if claims.ExpiresAt < time.Now().Local().Unix() {
+		msg = "token is expired"
+		return
+	}
+
+	return claims, msg
 }
