@@ -2,7 +2,9 @@ package repositories
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/MarselBissengaliyev/ggp-blog/models"
 	"github.com/MarselBissengaliyev/ggp-blog/utils"
@@ -113,7 +115,7 @@ func (r *Repository) Login(c *gin.Context) {
 		})
 	}
 
-	err, newToken := utils.CreateTokens(
+	newToken, err := utils.CreateTokens(
 		token,
 		refreshToken,
 		c.Request.UserAgent(),
@@ -135,5 +137,32 @@ func (r *Repository) Login(c *gin.Context) {
 			"token": newToken.AccessToken,
 		},
 		"message": "you succefully login",
+	})
+}
+
+func (r *Repository) Logout(c *gin.Context) {
+	tokenId, err := strconv.ParseUint(fmt.Sprint(c.Keys["token_id"]), 10, 32)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"error":   err.Error(),
+			"message": "error occured while convert tokenId to uint",
+		})
+	}
+
+	parsedTokenId := uint(tokenId)
+
+	if err := utils.DeleteTokens(r.DB, parsedTokenId); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  "failed",
+			"error":   err.Error(),
+			"message": "error occured while delete tokens",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "you succefully logout",
 	})
 }
