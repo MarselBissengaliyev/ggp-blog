@@ -60,6 +60,16 @@ func Authenticate(r *repositories.Repository) gin.HandlerFunc {
 			return
 		}
 
+		if !user.EmailConfirmed {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status":  "failed",
+				"error":   "email not verificated",
+				"message": "Please verify your email",
+			})
+			c.Abort()
+			return
+		}
+
 		c.Set("email", claims.Email)
 		c.Set("first_name", claims.FirstName)
 		c.Set("last_name", claims.LastName)
