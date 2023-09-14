@@ -15,7 +15,7 @@ type Config struct {
 	Email_Smtp_User string `mapstructure:"EMAIL_SMTP_USER"`
 	Email_Smtp_Pass string `mapstructure:"EMAIL_SMTP_PASS"`
 	Email_Smtp_Port int    `mapstructure:"EMAIL_SMTP_PORT"`
-	Client_Origin   string `mapstructure:"CLIENT_ORIGIN"`
+	App_Origin      string `mapstructure:"APP_ORIGIN"`
 }
 
 func LoadConfig(path string) (config Config, err error) {
