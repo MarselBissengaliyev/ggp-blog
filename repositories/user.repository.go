@@ -54,3 +54,34 @@ func (r *Repository) GetUsers(c *gin.Context) {
 		"message": "you succefully got users",
 	})
 }
+
+func (r *Repository) GetUserByUsername(c *gin.Context) {
+	var user models.User
+	userName := c.Param("user_name")
+
+	if userName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"error":   "user_name param cannot be empty string",
+			"message": "error occured while reading user_name param",
+		})
+
+		return
+	}
+
+	if err := r.DB.First(&user, fmt.Sprintf("user_name = %s", userName)).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"error":   err.Error(),
+			"message": "error occured while getting user by user_name",
+		})
+
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"data":    user,
+		"message": "you succefully got user by user_name",
+	})
+}
