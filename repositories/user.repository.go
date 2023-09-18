@@ -256,4 +256,9 @@ func (r *Repository) DeleteUserByUsername(c *gin.Context) {
 
 		return
 	}
+
+	c.JSON(http.StatusNoContent, gin.H{
+		"status":  "success",
+		"message": "you succefully delete user by username",
+	})
 }
