@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/MarselBissengaliyev/ggp-blog/constants"
 	"github.com/MarselBissengaliyev/ggp-blog/models"
 	"github.com/MarselBissengaliyev/ggp-blog/utils"
 	"github.com/gin-gonic/gin"
@@ -50,7 +51,7 @@ func (r *Repository) SignUp(c *gin.Context) {
 		return
 	}
 
-	user.Role = "USER"
+	user.Role = constants.USER
 	user.EmailConfirmed = false
 
 	code := randstr.String(20)
@@ -115,7 +116,7 @@ func (r *Repository) Login(c *gin.Context) {
 		return
 	}
 
-	if !user.EmailConfirmed {
+	if !foundUser.EmailConfirmed {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"status":  "failed",
 			"error":   "email not verificated",
