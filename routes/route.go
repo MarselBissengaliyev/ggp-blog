@@ -1,11 +1,20 @@
 package routes
 
 import (
+	"github.com/MarselBissengaliyev/ggp-blog/config"
+	"github.com/MarselBissengaliyev/ggp-blog/repositories"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func SetupRoutes(r *gin.Engine, db *gorm.DB) {
+func SetupRoutes(r *gin.Engine, db *gorm.DB, config *config.Config) {
 	v1 := r.Group("/api/v1")
-	RegisterUserStoreRoutes(v1, db)
+
+	repository := &repositories.Repository{
+		DB: db,
+		Config: config,
+	}
+	
+	RegisterUserStoreRoutes(v1, repository)
+	RegisterAuthStoreRoutes(v1, repository)
 }
