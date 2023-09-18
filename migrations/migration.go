@@ -5,13 +5,15 @@ import (
 )
 
 type Migration struct {
-	db *gorm.DB
+	DB *gorm.DB
 }
 
 func Migrate(db *gorm.DB) error {
 	migrations := []func() error{}
 
-	migration := Migration{}
+	migration := Migration{
+		DB: db,
+	}
 
 	migrations = append(
 		migrations,

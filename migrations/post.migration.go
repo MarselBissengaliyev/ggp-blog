@@ -3,7 +3,7 @@ package migrations
 import "github.com/MarselBissengaliyev/ggp-blog/models"
 
 func (m *Migration) MigratePosts() error {
-	if err := m.db.AutoMigrate(&models.Post{}); err != nil {
+	if err := m.DB.AutoMigrate(&models.Post{}); err != nil {
 		return err
 	}
 
@@ -11,7 +11,7 @@ func (m *Migration) MigratePosts() error {
 }
 
 func (m *Migration) MigratePostReactions() error {
-	if err := m.db.AutoMigrate(&models.PostReaction{}); err != nil {
+	if err := m.DB.AutoMigrate(&models.PostReaction{}); err != nil {
 		return err
 	}
 

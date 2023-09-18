@@ -5,7 +5,7 @@ import (
 )
 
 func (m *Migration) MigrateUsers() error {
-	if err := m.db.AutoMigrate(&models.User{}); err != nil {
+	if err := m.DB.AutoMigrate(&models.User{}); err != nil {
 		return err
 	}
 
