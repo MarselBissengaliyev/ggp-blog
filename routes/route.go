@@ -11,10 +11,11 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, config *config.Config) {
 	v1 := r.Group("/api/v1")
 
 	repository := &repositories.Repository{
-		DB: db,
+		DB:     db,
 		Config: config,
 	}
-	
+
 	RegisterUserStoreRoutes(v1, repository)
 	RegisterAuthStoreRoutes(v1, repository)
+	RegisterPostStoreRoutes(v1, repository)
 }
