@@ -73,6 +73,7 @@ func Authenticate(r *repositories.Repository) gin.HandlerFunc {
 		c.Set("email", claims.Email)
 		c.Set("first_name", claims.FirstName)
 		c.Set("last_name", claims.LastName)
+		c.Set("user_name", claims.UserName)
 		c.Set("uid", claims.Uid)
 		c.Set("role", claims.Role)
 		c.Next()
