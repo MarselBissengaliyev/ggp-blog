@@ -49,15 +49,37 @@ func (r *Repository) GetPosts(c *gin.Context) {
 		return
 	}
 
+	var result []gin.H
+
+	for _, post := range posts {
+		reactionsCount := post.ReactionsCount(r.DB, post.ID)
+
+		item := gin.H{
+			"title":           post.Title,
+			"slug":            post.Slug,
+			"description":     post.Description,
+			"content":         post.Content,
+			"preview_url":     post.PreviewUrl,
+			"is_banned":       post.IsBanned,
+			"author":          post.Author(r.DB),
+			"created_at":      post.CreatedAt,
+			"updated_at":      post.UpdatedAt,
+			"reactions_count": reactionsCount,
+		}
+
+		result = append(result, item)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    posts,
+		"data":    result,
 		"message": "you succefully got posts",
 	})
 }
 
 func (r *Repository) GetPostBySlug(c *gin.Context) {
 	var post models.Post
+
 	slug := c.Param("slug")
 
 	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
@@ -81,9 +103,22 @@ func (r *Repository) GetPostBySlug(c *gin.Context) {
 		return
 	}
 
+	reactionsCount := post.ReactionsCount(r.DB, post.ID)
+
 	c.JSON(http.StatusOK, gin.H{
-		"stauts":  "success",
-		"data":    post,
+		"stauts": "success",
+		"data": gin.H{
+			"title":           post.Title,
+			"slug":            post.Slug,
+			"description":     post.Description,
+			"content":         post.Content,
+			"preview_url":     post.PreviewUrl,
+			"is_banned":       post.IsBanned,
+			"author":          post.Author(r.DB),
+			"created_at":      post.CreatedAt,
+			"updated_at":      post.UpdatedAt,
+			"reactions_count": reactionsCount,
+		},
 		"message": "you succefully found post by slug",
 	})
 }
@@ -92,13 +127,13 @@ func (r *Repository) CreatePost(c *gin.Context) {
 	var post models.Post
 	var count int64
 
-	uid, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while reading uid from session",
+			"message": "error occured while converting uid from session",
 		})
 
 		return
@@ -114,9 +149,9 @@ func (r *Repository) CreatePost(c *gin.Context) {
 		return
 	}
 
-	post.UserId = uint(uid)
 	post.ViewsCount = 0
 	post.IsBanned = false
+	post.UserId = uint(userId)
 
 	slug := slug.Make(post.Title)
 	post.Slug = slug
@@ -142,8 +177,18 @@ func (r *Repository) CreatePost(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"status":  "success",
-		"data":    post,
+		"status": "success",
+		"data": gin.H{
+			"title":       post.Title,
+			"slug":        post.Slug,
+			"description": post.Description,
+			"content":     post.Content,
+			"preview_url": post.PreviewUrl,
+			"is_banned":   post.IsBanned,
+			"author":      post.Author(r.DB),
+			"created_at":  post.CreatedAt,
+			"updated_at":  post.UpdatedAt,
+		},
 		"message": "you succefully created post",
 	})
 }
@@ -153,13 +198,13 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 	var foundPost models.Post
 
 	slug := c.Param("slug")
-	uid, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while reading uid from session",
+			"message": "error occured while converting uid from session",
 		})
 
 		return
@@ -175,11 +220,11 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 		return
 	}
 
-	if foundPost.UserId != uint(uid) {
+	if foundPost.UserId != uint(userId) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to update this post",
-			"message": "error occured while verifying user_id of post",
+			"message": "error occured while verifying author of post",
 		})
 
 		return
@@ -209,8 +254,18 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"data":    post,
+		"status": "success",
+		"data": gin.H{
+			"title":       post.Title,
+			"slug":        post.Slug,
+			"description": post.Description,
+			"content":     post.Content,
+			"preview_url": post.PreviewUrl,
+			"is_banned":   post.IsBanned,
+			"author":      post.Author(r.DB),
+			"created_at":  post.CreatedAt,
+			"updated_at":  post.UpdatedAt,
+		},
 		"message": "you succefully update post",
 	})
 }
