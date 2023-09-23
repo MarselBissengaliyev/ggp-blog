@@ -52,19 +52,17 @@ func (r *Repository) GetPosts(c *gin.Context) {
 	var result []gin.H
 
 	for _, post := range posts {
-		reactionsCount := post.ReactionsCount(r.DB, post.ID)
 
 		item := gin.H{
-			"title":           post.Title,
-			"slug":            post.Slug,
-			"description":     post.Description,
-			"content":         post.Content,
-			"preview_url":     post.PreviewUrl,
-			"is_banned":       post.IsBanned,
-			"author":          post.Author(r.DB),
-			"created_at":      post.CreatedAt,
-			"updated_at":      post.UpdatedAt,
-			"reactions_count": reactionsCount,
+			"title":       post.Title,
+			"slug":        post.Slug,
+			"description": post.Description,
+			"content":     post.Content,
+			"preview_url": post.PreviewUrl,
+			"is_banned":   post.IsBanned,
+			"user_id":     post.UserId,
+			"created_at":  post.CreatedAt,
+			"updated_at":  post.UpdatedAt,
 		}
 
 		result = append(result, item)
@@ -77,12 +75,12 @@ func (r *Repository) GetPosts(c *gin.Context) {
 	})
 }
 
-func (r *Repository) GetPostBySlug(c *gin.Context) {
+func (r *Repository) GetPostById(c *gin.Context) {
 	var post models.Post
 
-	slug := c.Param("slug")
+	postId := c.Param("post_id")
 
-	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", postId)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -103,21 +101,18 @@ func (r *Repository) GetPostBySlug(c *gin.Context) {
 		return
 	}
 
-	reactionsCount := post.ReactionsCount(r.DB, post.ID)
-
 	c.JSON(http.StatusOK, gin.H{
 		"stauts": "success",
 		"data": gin.H{
-			"title":           post.Title,
-			"slug":            post.Slug,
-			"description":     post.Description,
-			"content":         post.Content,
-			"preview_url":     post.PreviewUrl,
-			"is_banned":       post.IsBanned,
-			"author":          post.Author(r.DB),
-			"created_at":      post.CreatedAt,
-			"updated_at":      post.UpdatedAt,
-			"reactions_count": reactionsCount,
+			"title":       post.Title,
+			"slug":        post.Slug,
+			"description": post.Description,
+			"content":     post.Content,
+			"preview_url": post.PreviewUrl,
+			"is_banned":   post.IsBanned,
+			"user_id":     post.UserId,
+			"created_at":  post.CreatedAt,
+			"updated_at":  post.UpdatedAt,
 		},
 		"message": "you succefully found post by slug",
 	})
@@ -185,7 +180,7 @@ func (r *Repository) CreatePost(c *gin.Context) {
 			"content":     post.Content,
 			"preview_url": post.PreviewUrl,
 			"is_banned":   post.IsBanned,
-			"author":      post.Author(r.DB),
+			"user_id":     post.UserId,
 			"created_at":  post.CreatedAt,
 			"updated_at":  post.UpdatedAt,
 		},
@@ -193,11 +188,11 @@ func (r *Repository) CreatePost(c *gin.Context) {
 	})
 }
 
-func (r *Repository) UpdatePostBySlug(c *gin.Context) {
+func (r *Repository) UpdatePostById(c *gin.Context) {
 	var post models.Post
 	var foundPost models.Post
 
-	slug := c.Param("slug")
+	postId := c.Param("post_id")
 	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err != nil {
@@ -210,7 +205,7 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&foundPost, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
+	if err := r.DB.First(&foundPost, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"stauts":  "failed",
 			"error":   err.Error(),
@@ -262,7 +257,7 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 			"content":     post.Content,
 			"preview_url": post.PreviewUrl,
 			"is_banned":   post.IsBanned,
-			"author":      post.Author(r.DB),
+			"user_id":     post.UserId,
 			"created_at":  post.CreatedAt,
 			"updated_at":  post.UpdatedAt,
 		},
@@ -270,11 +265,11 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 	})
 }
 
-func (r *Repository) DeletePostBySlug(c *gin.Context) {
+func (r *Repository) DeletePostById(c *gin.Context) {
 	var post models.Post
 	var foundPost models.Post
 
-	slug := c.Param("slug")
+	postId := c.Param("post_id")
 	uid, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err != nil {
@@ -287,7 +282,7 @@ func (r *Repository) DeletePostBySlug(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&foundPost, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
+	if err := r.DB.First(&foundPost, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"stauts":  "failed",
 			"error":   err.Error(),
@@ -307,7 +302,7 @@ func (r *Repository) DeletePostBySlug(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.Delete(&post, fmt.Sprintf("user_id = %d AND slug = '%s'", uid, slug)).Error; err != nil {
+	if err := r.DB.Delete(&post, fmt.Sprintf("user_id = %d AND slug = '%s'", uid, postId)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),

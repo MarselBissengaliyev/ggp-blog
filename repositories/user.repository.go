@@ -60,19 +60,9 @@ func (r *Repository) GetUsers(c *gin.Context) {
 
 func (r *Repository) GetUserByUsername(c *gin.Context) {
 	var user models.User
-	userName := c.Param("user_name")
+	userId := c.Param("user_id")
 
-	if userName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   "user_name param cannot be empty string",
-			"message": "error occured while reading user_name param",
-		})
-
-		return
-	}
-
-	if err := r.DB.First(&user, fmt.Sprintf("user_name = '%s'", userName)).Error; err != nil {
+	if err := r.DB.First(&user, fmt.Sprintf("id = '%s'", userId)).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -95,12 +85,13 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 	var count int64
 
 	uid := fmt.Sprint(c.Keys["uid"])
+	userId := c.Param("user_id")
 
-	if uid == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
+	if uid != userId {
+		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
-			"error":   "uid cannot be emtpy string",
-			"message": "error occured while reading uid key",
+			"error":   "you don't have permission to access this",
+			"message": "error occured while checking user permission",
 		})
 
 		return
@@ -116,7 +107,7 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&foundUser, fmt.Sprintf("id = '%s'", uid)).Error; err != nil {
+	if err := r.DB.First(&foundUser, fmt.Sprintf("id = '%s'", userId)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -145,16 +136,6 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 			"error":   "this username already exists",
 			"message": "error occured while creating account",
 		})
-		return
-	}
-
-	if uid != fmt.Sprint(foundUser.ID) {
-		c.JSON(http.StatusForbidden, gin.H{
-			"status":  "failed",
-			"error":   "you don't have permission to access this",
-			"message": "error occured while checking user permission",
-		})
-
 		return
 	}
 
@@ -216,12 +197,13 @@ func (r *Repository) DeleteUserByUsername(c *gin.Context) {
 	var user models.User
 
 	uid := fmt.Sprint(c.Keys["uid"])
+	userId := c.Param("user_id")
 
-	if uid == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
+	if uid != userId {
+		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
-			"error":   "uid cannot be emtpy string",
-			"message": "error occured while reading uid key",
+			"error":   "you don't have permission to access this",
+			"message": "error occured while checking user permission",
 		})
 
 		return
@@ -232,16 +214,6 @@ func (r *Repository) DeleteUserByUsername(c *gin.Context) {
 			"status":  "failed",
 			"error":   err.Error(),
 			"message": "error occured while finding user",
-		})
-
-		return
-	}
-
-	if uid != fmt.Sprint(user.ID) {
-		c.JSON(http.StatusForbidden, gin.H{
-			"status":  "failed",
-			"error":   "you don't have permission to access this",
-			"message": "error occured while checking user permission",
 		})
 
 		return

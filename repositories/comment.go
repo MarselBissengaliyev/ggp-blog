@@ -9,13 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (r *Repository) GetReactions(c *gin.Context) {
-	var reactions []models.PostReaction
+func (r *Repository) GetComments(c *gin.Context) {
+	var comments []models.Comment
 	var post models.Post
 
 	postId := c.Param("post_id")
 
-	limit := 20
+	limit := 10
 
 	page, err := strconv.Atoi(c.Query("page"))
 	offset := limit * page
@@ -42,11 +42,11 @@ func (r *Repository) GetReactions(c *gin.Context) {
 		"%s %s",
 		orderBy,
 		orderType,
-	)).Find(&reactions).Error; err != nil {
+	)).Find(&comments).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while getting reactions",
+			"message": "error occured while getting comments",
 		})
 
 		return
@@ -54,15 +54,14 @@ func (r *Repository) GetReactions(c *gin.Context) {
 
 	var result []gin.H
 
-	for _, reaction := range reactions {
+	for _, comment := range comments {
 		item := gin.H{
-			"id":          reaction.ID,
-			"is_liked":    reaction.IsLiked,
-			"is_disliked": reaction.IsDisliked,
-			"user_id":     reaction.UserId,
-			"created_at":  reaction.CreatedAt,
-			"updated_at":  reaction.UpdatedAt,
-			"post_id":     reaction.PostId,
+			"id":         comment.ID,
+			"user_id":    comment.UserId,
+			"content":    comment.Content,
+			"created_at": comment.CreatedAt,
+			"updated_at": comment.UpdatedAt,
+			"post_id":    comment.PostId,
 		}
 
 		result = append(result, item)
@@ -75,10 +74,9 @@ func (r *Repository) GetReactions(c *gin.Context) {
 	})
 }
 
-func (r *Repository) CreateReaction(c *gin.Context) {
-	var reaction models.PostReaction
+func (r *Repository) CreateComment(c *gin.Context) {
+	var comment models.Comment
 	var post models.Post
-	var count int64
 
 	postId := c.Param("post_id")
 	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
@@ -93,11 +91,11 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 		return
 	}
 
-	if err := c.BindJSON(&reaction); err != nil {
+	if err := c.BindJSON(&comment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while binding reaction json",
+			"message": "error occured while binding comment json",
 		})
 
 		return
@@ -113,25 +111,14 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 		return
 	}
 
-	r.DB.Model(&models.PostReaction{}).Where("user_id = ?", userId).Count(&count)
+	comment.PostId = post.ID
+	comment.UserId = uint(userId)
 
-	if count > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   "this reaction already exists",
-			"message": "error occured while creating reaciton",
-		})
-		return
-	}
-
-	reaction.UserId = uint(userId)
-	reaction.PostId = post.ID
-
-	if err := r.DB.Create(&reaction).Error; err != nil {
+	if err := r.DB.Create(&comment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while creating reaction",
+			"message": "error occured while creating comment",
 		})
 		return
 	}
@@ -139,25 +126,24 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"status": "success",
 		"data": gin.H{
-			"id":          reaction.ID,
-			"is_liked":    reaction.IsLiked,
-			"is_disliked": reaction.IsDisliked,
-			"user_id":     reaction.UserId,
-			"post_id":     reaction.PostId,
-			"created_at":  reaction.CreatedAt,
-			"updated_at":  reaction.UpdatedAt,
+			"id":         comment.ID,
+			"user_id":    comment.UserId,
+			"content":    comment.Content,
+			"created_at": comment.CreatedAt,
+			"updated_at": comment.UpdatedAt,
+			"post_id":    comment.PostId,
 		},
-		"message": "you succefully created a new reaction",
+		"message": "you succefully created a new comment",
 	})
 }
 
-func (r *Repository) UpdateReaction(c *gin.Context) {
-	var reaction models.PostReaction
-	var foundReaction models.PostReaction
+func (r *Repository) UpdateComment(c *gin.Context) {
+	var comment models.Comment
+	var foundComment models.Comment
 	var post models.Post
 
 	postId := c.Param("post_id")
-	reactionId := c.Param("reaction_id")
+	id := c.Param("id")
 	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err != nil {
@@ -170,17 +156,17 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 		return
 	}
 
-	if err := c.BindJSON(&reaction); err != nil {
+	if err := c.BindJSON(&comment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while binding reaction json",
+			"message": "error occured while binding comment json",
 		})
 
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", postId)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -190,30 +176,29 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&foundReaction, fmt.Sprintf("id = '%s'", reactionId)).Error; err != nil {
+	if err := r.DB.First(&foundComment, fmt.Sprintf("id = '%s'", id)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while finding reaction by id",
+			"message": "error occured while finding comment by id",
 		})
 
 		return
 	}
 
-	if foundReaction.UserId != uint(userId) {
+	if foundComment.UserId != uint(userId) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
-			"error":   "you don't have rights to update this reaction",
-			"message": "error occured while verifying user_id of reaction",
+			"error":   "you don't have rights to update this comment",
+			"message": "error occured while verifying user_id of comment",
 		})
 
 		return
 	}
 
-	foundReaction.IsLiked = reaction.IsLiked
-	foundReaction.IsDisliked = reaction.IsDisliked
+	foundComment.Content = comment.Content
 
-	if err := r.DB.Save(&foundReaction).Error; err != nil {
+	if err := r.DB.Save(&foundComment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -226,24 +211,23 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"stauts": "success",
 		"data": gin.H{
-			"id":          foundReaction.ID,
-			"is_liked":    foundReaction.IsLiked,
-			"is_disliked": foundReaction.IsDisliked,
-			"user_id":     foundReaction.UserId,
-			"post_id":     foundReaction.PostId,
-			"created_at":  foundReaction.CreatedAt,
-			"updated_at":  foundReaction.UpdatedAt,
+			"id":         foundComment.ID,
+			"user_id":    foundComment.UserId,
+			"content":    foundComment.Content,
+			"created_at": foundComment.CreatedAt,
+			"updated_at": foundComment.UpdatedAt,
+			"post_id":    foundComment.PostId,
 		},
-		"message": "you succefully update reaction by id",
+		"message": "you succefully update comment by id",
 	})
 }
 
-func (r *Repository) DeleteReaction(c *gin.Context) {
+func (r *Repository) DeleteComment(c *gin.Context) {
 	var post models.Post
-	var reaction models.PostReaction
+	var comment models.Comment
 
 	postId := c.Param("post_id")
-	reactionId := c.Param("reaction_id")
+	id := c.Param("id")
 	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err != nil {
@@ -256,7 +240,7 @@ func (r *Repository) DeleteReaction(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", postId)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -266,17 +250,17 @@ func (r *Repository) DeleteReaction(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&reaction, fmt.Sprintf("id = '%s'", reactionId)).Error; err != nil {
+	if err := r.DB.First(&comment, fmt.Sprintf("id = '%s'", id)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while finding post-reaction by id",
+			"message": "error occured while finding comment by id",
 		})
 
 		return
 	}
 
-	if reaction.UserId != uint(userId) {
+	if comment.UserId != uint(userId) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to delete this post-reaction",
@@ -286,11 +270,11 @@ func (r *Repository) DeleteReaction(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.Delete(&reaction, fmt.Sprintf("id = '%s'", reactionId)).Error; err != nil {
+	if err := r.DB.Delete(&comment, fmt.Sprintf("id = '%s'", id)).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while delete post-reaction",
+			"message": "error occured while delete comment",
 		})
 
 		return
@@ -298,6 +282,6 @@ func (r *Repository) DeleteReaction(c *gin.Context) {
 
 	c.JSON(http.StatusNoContent, gin.H{
 		"status":  "success",
-		"message": "you succefully delete post-reaction by id",
+		"message": "you succefully delete comment by id",
 	})
 }
