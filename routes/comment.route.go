@@ -7,7 +7,7 @@ import (
 )
 
 func RegisterCommentStoreRoutes(rg *gin.RouterGroup, r *repositories.Repository) {
-	routes := rg.Group("/posts/:post_id/comments")
+	routes := rg.Group("/posts/:slug/comments")
 
 	routes.GET("/", r.GetComments)
 

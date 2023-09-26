@@ -7,7 +7,7 @@ import (
 )
 
 func RegisterTagStoreRoutes(rg *gin.RouterGroup, r *repositories.Repository) {
-	routes := rg.Group("/posts/:post_id/tags")
+	routes := rg.Group("/posts/:slug/tags")
 
 	routes.GET("/", r.GetTags)
 

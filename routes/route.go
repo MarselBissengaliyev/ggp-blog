@@ -21,4 +21,5 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, config *config.Config) {
 	RegisterPostReactionStoreRoutes(v1, repository)
 	RegisterCommentStoreRoutes(v1, repository)
 	RegisterTagStoreRoutes(v1, repository)
+	RegisterReportStoreRoutes(v1, repository)
 }

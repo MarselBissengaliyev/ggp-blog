@@ -10,9 +10,12 @@ func RegisterUserStoreRoutes(rg *gin.RouterGroup, r *repositories.Repository) {
 	routes := rg.Group("/users")
 
 	routes.GET("/", r.GetUsers)
-	routes.GET("/:user_id", r.GetUserByUsername)
+	routes.GET("/:user_name", r.GetUserByUsername)
 
 	privateRoutes := routes.Group("/", middlewares.Authenticate(r))
-	privateRoutes.PUT("/:user_id", r.UpdateUserByUsername)
-	privateRoutes.DELETE("/:user_id", r.DeleteUserByUsername)
+	privateRoutes.PUT("/:user_name", r.UpdateUserByUsername)
+	privateRoutes.DELETE("/:user_name", r.DeleteUserByUsername)
+
+	adminRoutes := privateRoutes.Group("/admin", middlewares.IsAdmin(r))
+	adminRoutes.PUT("/:user_name", r.AdminUpdateUser)
 }

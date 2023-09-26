@@ -7,7 +7,7 @@ import (
 )
 
 func RegisterPostReactionStoreRoutes(rg *gin.RouterGroup, r *repositories.Repository) {
-	routes := rg.Group("/posts/:post_id/reactions")
+	routes := rg.Group("/posts/:slug/reactions")
 
 	routes.GET("/", r.GetReactions)
 

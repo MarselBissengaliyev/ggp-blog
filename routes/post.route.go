@@ -10,11 +10,11 @@ func RegisterPostStoreRoutes(rg *gin.RouterGroup, r *repositories.Repository) {
 	routes := rg.Group("/posts")
 
 	routes.GET("/", r.GetPosts)
-	routes.GET("/:post_id", r.GetPostById)
+	routes.GET("/:slug", r.GetPostBySlug)
 
 	privateRoutes := routes.Group("/", middlewares.Authenticate(r))
 	
 	privateRoutes.POST("/", r.CreatePost)
-	privateRoutes.PUT("/:post_id", r.UpdatePostById)
-	privateRoutes.DELETE("/:post_id", r.DeletePostById)
+	privateRoutes.PUT("/:slug", r.UpdatePostBySlug)
+	privateRoutes.DELETE("/:slug", r.DeletePostBySlug)
 }
