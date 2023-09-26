@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -60,9 +59,9 @@ func (r *Repository) GetUsers(c *gin.Context) {
 
 func (r *Repository) GetUserByUsername(c *gin.Context) {
 	var user models.User
-	userId := c.Param("user_id")
+	userName := c.Param("user_name")
 
-	if err := r.DB.First(&user, fmt.Sprintf("id = '%s'", userId)).Error; err != nil {
+	if err := r.DB.First(&user, fmt.Sprintf("user_name = '%s'", userName)).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -83,19 +82,10 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 	var user models.User
 	var foundUser models.User
 	var count int64
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
 
 	uid := fmt.Sprint(c.Keys["uid"])
-	userId := c.Param("user_id")
-
-	if uid != userId {
-		c.JSON(http.StatusForbidden, gin.H{
-			"status":  "failed",
-			"error":   "you don't have permission to access this",
-			"message": "error occured while checking user permission",
-		})
-
-		return
-	}
+	userName := c.Param("user_name")
 
 	if err := c.BindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -107,11 +97,21 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&foundUser, fmt.Sprintf("id = '%s'", userId)).Error; err != nil {
+	if err := r.DB.First(&foundUser, fmt.Sprintf("user_name = '%s'", userName)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
 			"message": "error occured while finding user",
+		})
+
+		return
+	}
+
+	if userNameKey != foundUser.UserName {
+		c.JSON(http.StatusForbidden, gin.H{
+			"status":  "failed",
+			"error":   "you don't have permission to access this",
+			"message": "error occured while checking user permission",
 		})
 
 		return
@@ -143,12 +143,12 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 	user.Password = password
 
 	if foundUser.Email != user.Email {
-		code := randstr.String(20)
-		user.EmailCode = sql.NullString{String: utils.Encode(code), Valid: true}
+		code := utils.Encode(randstr.String(20))
+		user.EmailCode = &code
 		user.EmailConfirmed = false
 
 		emailData := utils.EmailData{
-			URL:       r.Config.App_Origin + "/auth/confirm-email/" + user.EmailCode.String,
+			URL:       r.Config.App_Origin + "/auth/confirm-email/" + *user.EmailCode,
 			FirstName: user.FirstName,
 			Subject:   "Your account verification code",
 		}
@@ -196,10 +196,10 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 func (r *Repository) DeleteUserByUsername(c *gin.Context) {
 	var user models.User
 
-	uid := fmt.Sprint(c.Keys["uid"])
-	userId := c.Param("user_id")
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
+	userName := c.Param("user_name")
 
-	if uid != userId {
+	if userNameKey != userName {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have permission to access this",
@@ -209,7 +209,7 @@ func (r *Repository) DeleteUserByUsername(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&user, fmt.Sprintf("id = '%s'", uid)).Error; err != nil {
+	if err := r.DB.First(&user, fmt.Sprintf("user_name = '%s'", userNameKey)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -219,7 +219,7 @@ func (r *Repository) DeleteUserByUsername(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.Delete(&user, fmt.Sprintf("id = %s", uid)).Error; err != nil {
+	if err := r.DB.Delete(&user, fmt.Sprintf("user_name = %s", userNameKey)).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -232,5 +232,59 @@ func (r *Repository) DeleteUserByUsername(c *gin.Context) {
 	c.JSON(http.StatusNoContent, gin.H{
 		"status":  "success",
 		"message": "you succefully delete user by username",
+	})
+}
+
+func (r *Repository) AdminUpdateUser(c *gin.Context) {
+	var user models.User
+
+	if err := c.BindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"error":   err.Error(),
+			"message": "error occured while binding json",
+		})
+
+		return
+	}
+
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
+	userRoleKey := fmt.Sprint(c.Keys["role"])
+	userName := c.Param("user_name")
+
+	if userNameKey == userName {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"error":   "you can't ban yourself",
+			"message": "error occured while admin updating user",
+		})
+
+		return
+	}
+
+	if userRoleKey != "ADMIN" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"status":  "failed",
+			"error":   "you don't have permission to ban a user",
+			"message": "error occured while admin updated user",
+		})
+
+		return
+	}
+
+	if err := r.DB.Where("user_name = ?", userName).Updates(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"error":   err.Error(),
+			"message": "error occured while updating user",
+		})
+
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"data":    user,
+		"message": "you succefully update post",
 	})
 }

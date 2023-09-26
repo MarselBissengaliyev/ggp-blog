@@ -39,7 +39,7 @@ func (r *Repository) GetPosts(c *gin.Context) {
 		"%s %s",
 		orderBy,
 		orderType,
-	)).Find(&posts).Error; err != nil {
+	)).Preload("User").Find(&posts).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -49,38 +49,22 @@ func (r *Repository) GetPosts(c *gin.Context) {
 		return
 	}
 
-	var result []gin.H
-
-	for _, post := range posts {
-
-		item := gin.H{
-			"title":       post.Title,
-			"slug":        post.Slug,
-			"description": post.Description,
-			"content":     post.Content,
-			"preview_url": post.PreviewUrl,
-			"is_banned":   post.IsBanned,
-			"user_id":     post.UserId,
-			"created_at":  post.CreatedAt,
-			"updated_at":  post.UpdatedAt,
-		}
-
-		result = append(result, item)
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    result,
+		"data":    posts,
 		"message": "you succefully got posts",
 	})
 }
 
-func (r *Repository) GetPostById(c *gin.Context) {
+func (r *Repository) GetPostBySlug(c *gin.Context) {
 	var post models.Post
 
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 
-	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", postId)).Error; err != nil {
+	if err := r.DB.Preload("User").First(
+		&post,
+		fmt.Sprintf("slug = '%s'", slug),
+	).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -102,18 +86,8 @@ func (r *Repository) GetPostById(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"stauts": "success",
-		"data": gin.H{
-			"title":       post.Title,
-			"slug":        post.Slug,
-			"description": post.Description,
-			"content":     post.Content,
-			"preview_url": post.PreviewUrl,
-			"is_banned":   post.IsBanned,
-			"user_id":     post.UserId,
-			"created_at":  post.CreatedAt,
-			"updated_at":  post.UpdatedAt,
-		},
+		"stauts":  "success",
+		"data":    post,
 		"message": "you succefully found post by slug",
 	})
 }
@@ -122,17 +96,7 @@ func (r *Repository) CreatePost(c *gin.Context) {
 	var post models.Post
 	var count int64
 
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := c.BindJSON(&post); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -146,7 +110,7 @@ func (r *Repository) CreatePost(c *gin.Context) {
 
 	post.ViewsCount = 0
 	post.IsBanned = false
-	post.UserId = uint(userId)
+	post.UserId = uint(userIdKey)
 
 	slug := slug.Make(post.Title)
 	post.Slug = slug
@@ -179,33 +143,22 @@ func (r *Repository) CreatePost(c *gin.Context) {
 			"description": post.Description,
 			"content":     post.Content,
 			"preview_url": post.PreviewUrl,
-			"is_banned":   post.IsBanned,
 			"user_id":     post.UserId,
-			"created_at":  post.CreatedAt,
-			"updated_at":  post.UpdatedAt,
+			"is_banned":   post.IsBanned,
+			"views_count": post.ViewsCount,
 		},
 		"message": "you succefully created post",
 	})
 }
 
-func (r *Repository) UpdatePostById(c *gin.Context) {
+func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 	var post models.Post
 	var foundPost models.Post
 
-	postId := c.Param("post_id")
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	slug := c.Param("slug")
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
-
-	if err := r.DB.First(&foundPost, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.Preload("User").First(&foundPost, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"stauts":  "failed",
 			"error":   err.Error(),
@@ -215,7 +168,7 @@ func (r *Repository) UpdatePostById(c *gin.Context) {
 		return
 	}
 
-	if foundPost.UserId != uint(userId) {
+	if foundPost.UserId != uint(userIdKey) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to update this post",
@@ -249,40 +202,20 @@ func (r *Repository) UpdatePostById(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"data": gin.H{
-			"title":       post.Title,
-			"slug":        post.Slug,
-			"description": post.Description,
-			"content":     post.Content,
-			"preview_url": post.PreviewUrl,
-			"is_banned":   post.IsBanned,
-			"user_id":     post.UserId,
-			"created_at":  post.CreatedAt,
-			"updated_at":  post.UpdatedAt,
-		},
+		"status":  "success",
+		"data":    post,
 		"message": "you succefully update post",
 	})
 }
 
-func (r *Repository) DeletePostById(c *gin.Context) {
+func (r *Repository) DeletePostBySlug(c *gin.Context) {
 	var post models.Post
 	var foundPost models.Post
 
-	postId := c.Param("post_id")
-	uid, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	slug := c.Param("slug")
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while reading uid from session",
-		})
-
-		return
-	}
-
-	if err := r.DB.First(&foundPost, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&foundPost, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"stauts":  "failed",
 			"error":   err.Error(),
@@ -292,7 +225,7 @@ func (r *Repository) DeletePostById(c *gin.Context) {
 		return
 	}
 
-	if foundPost.UserId != uint(uid) {
+	if foundPost.UserId != uint(userIdKey) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to update this post",
@@ -302,7 +235,7 @@ func (r *Repository) DeletePostById(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.Delete(&post, fmt.Sprintf("user_id = %d AND slug = '%s'", uid, postId)).Error; err != nil {
+	if err := r.DB.Delete(&post, fmt.Sprintf("user_id = %d AND slug = '%s'", userIdKey, slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),

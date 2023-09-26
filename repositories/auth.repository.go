@@ -54,8 +54,8 @@ func (r *Repository) SignUp(c *gin.Context) {
 	user.Role = constants.USER
 	user.EmailConfirmed = false
 
-	code := randstr.String(20)
-	user.EmailCode = sql.NullString{String: utils.Encode(code), Valid: true}
+	code := utils.Encode(randstr.String(20))
+	user.EmailCode = &code
 	user.IsBanned = false
 
 	if err := r.DB.Create(&user).Error; err != nil {
@@ -68,7 +68,7 @@ func (r *Repository) SignUp(c *gin.Context) {
 	}
 
 	emailData := utils.EmailData{
-		URL:       r.Config.App_Origin + "/auth/confirm-email/" + user.EmailCode.String,
+		URL:       r.Config.App_Origin + "/auth/confirm-email/" + *user.EmailCode,
 		FirstName: user.FirstName,
 		Subject:   "Your account verification code",
 	}
@@ -149,8 +149,8 @@ func (r *Repository) Login(c *gin.Context) {
 		token,
 		refreshToken,
 		c.Request.UserAgent(),
-		foundUser.ID,
 		r.DB,
+		foundUser.ID,
 	)
 
 	if err != nil {
@@ -241,9 +241,7 @@ func (r *Repository) ConfirmEmail(c *gin.Context) {
 		return
 	}
 
-	user.EmailCode = sql.NullString{
-		Valid: false,
-	}
+	user.EmailCode = nil
 
 	user.EmailConfirmed = true
 
@@ -276,7 +274,7 @@ func (r *Repository) ConfirmEmail(c *gin.Context) {
 		return
 	}
 
-	createdToken, err := utils.CreateTokens(token, refreshToken, c.Request.UserAgent(), user.ID, r.DB)
+	createdToken, err := utils.CreateTokens(token, refreshToken, c.Request.UserAgent(), r.DB, user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",

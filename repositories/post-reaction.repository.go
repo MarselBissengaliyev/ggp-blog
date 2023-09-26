@@ -13,7 +13,7 @@ func (r *Repository) GetReactions(c *gin.Context) {
 	var reactions []models.PostReaction
 	var post models.Post
 
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 
 	limit := 20
 
@@ -28,7 +28,7 @@ func (r *Repository) GetReactions(c *gin.Context) {
 	orderBy := "created_at"
 	orderType := "desc"
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -52,25 +52,9 @@ func (r *Repository) GetReactions(c *gin.Context) {
 		return
 	}
 
-	var result []gin.H
-
-	for _, reaction := range reactions {
-		item := gin.H{
-			"id":          reaction.ID,
-			"is_liked":    reaction.IsLiked,
-			"is_disliked": reaction.IsDisliked,
-			"user_id":     reaction.UserId,
-			"created_at":  reaction.CreatedAt,
-			"updated_at":  reaction.UpdatedAt,
-			"post_id":     reaction.PostId,
-		}
-
-		result = append(result, item)
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    result,
+		"data":    reactions,
 		"message": "you succefully got posts",
 	})
 }
@@ -80,18 +64,8 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 	var post models.Post
 	var count int64
 
-	postId := c.Param("post_id")
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
+	slug := c.Param("slug")
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := c.BindJSON(&reaction); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -103,7 +77,7 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -113,7 +87,7 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 		return
 	}
 
-	r.DB.Model(&models.PostReaction{}).Where("user_id = ?", userId).Count(&count)
+	r.DB.Model(&models.PostReaction{}).Where("user_id = ?", userIdKey).Count(&count)
 
 	if count > 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -124,7 +98,7 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 		return
 	}
 
-	reaction.UserId = uint(userId)
+	reaction.UserId = uint(userIdKey)
 	reaction.PostId = post.ID
 
 	if err := r.DB.Create(&reaction).Error; err != nil {
@@ -137,16 +111,8 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"status": "success",
-		"data": gin.H{
-			"id":          reaction.ID,
-			"is_liked":    reaction.IsLiked,
-			"is_disliked": reaction.IsDisliked,
-			"user_id":     reaction.UserId,
-			"post_id":     reaction.PostId,
-			"created_at":  reaction.CreatedAt,
-			"updated_at":  reaction.UpdatedAt,
-		},
+		"status":  "success",
+		"data":    reaction,
 		"message": "you succefully created a new reaction",
 	})
 }
@@ -156,19 +122,9 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 	var foundReaction models.PostReaction
 	var post models.Post
 
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 	reactionId := c.Param("reaction_id")
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := c.BindJSON(&reaction); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -180,7 +136,7 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -200,11 +156,11 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 		return
 	}
 
-	if foundReaction.UserId != uint(userId) {
+	if foundReaction.UserId != uint(userIdKey) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to update this reaction",
-			"message": "error occured while verifying user_id of reaction",
+			"message": "error occured while verifying userNameKey of reaction",
 		})
 
 		return
@@ -224,16 +180,8 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"stauts": "success",
-		"data": gin.H{
-			"id":          foundReaction.ID,
-			"is_liked":    foundReaction.IsLiked,
-			"is_disliked": foundReaction.IsDisliked,
-			"user_id":     foundReaction.UserId,
-			"post_id":     foundReaction.PostId,
-			"created_at":  foundReaction.CreatedAt,
-			"updated_at":  foundReaction.UpdatedAt,
-		},
+		"stauts":  "success",
+		"data":    foundReaction,
 		"message": "you succefully update reaction by id",
 	})
 }
@@ -242,21 +190,11 @@ func (r *Repository) DeleteReaction(c *gin.Context) {
 	var post models.Post
 	var reaction models.PostReaction
 
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 	reactionId := c.Param("reaction_id")
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
-
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -276,7 +214,7 @@ func (r *Repository) DeleteReaction(c *gin.Context) {
 		return
 	}
 
-	if reaction.UserId != uint(userId) {
+	if reaction.UserId != uint(userIdKey) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to delete this post-reaction",

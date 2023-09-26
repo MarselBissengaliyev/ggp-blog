@@ -49,7 +49,7 @@ func (r *Repository) CreateTag(c *gin.Context) {
 	var post models.Post
 	var tag models.Tag
 	var tagsCount int64
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 	uid, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := c.BindJSON(&tag); err != nil {
@@ -62,7 +62,7 @@ func (r *Repository) CreateTag(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("post_id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -118,7 +118,7 @@ func (r *Repository) UpdateTag(c *gin.Context) {
 	var post models.Post
 	var tag models.Tag
 	var foundTag models.Tag
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 	tagId := c.Param("tag_id")
 	uid, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
@@ -132,7 +132,7 @@ func (r *Repository) UpdateTag(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -183,11 +183,11 @@ func (r *Repository) UpdateTag(c *gin.Context) {
 func (r *Repository) DeleteTag(c *gin.Context) {
 	var post models.Post
 	var tag models.Tag
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 	tagId := c.Param("tag_id")
 	uid, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),

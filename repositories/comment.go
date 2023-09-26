@@ -13,7 +13,7 @@ func (r *Repository) GetComments(c *gin.Context) {
 	var comments []models.Comment
 	var post models.Post
 
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 
 	limit := 10
 
@@ -28,7 +28,7 @@ func (r *Repository) GetComments(c *gin.Context) {
 	orderBy := "created_at"
 	orderType := "desc"
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -52,24 +52,9 @@ func (r *Repository) GetComments(c *gin.Context) {
 		return
 	}
 
-	var result []gin.H
-
-	for _, comment := range comments {
-		item := gin.H{
-			"id":         comment.ID,
-			"user_id":    comment.UserId,
-			"content":    comment.Content,
-			"created_at": comment.CreatedAt,
-			"updated_at": comment.UpdatedAt,
-			"post_id":    comment.PostId,
-		}
-
-		result = append(result, item)
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    result,
+		"data":    comments,
 		"message": "you succefully got posts",
 	})
 }
@@ -78,18 +63,8 @@ func (r *Repository) CreateComment(c *gin.Context) {
 	var comment models.Comment
 	var post models.Post
 
-	postId := c.Param("post_id")
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
+	slug := c.Param("post_id")
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := c.BindJSON(&comment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -101,7 +76,7 @@ func (r *Repository) CreateComment(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -112,7 +87,7 @@ func (r *Repository) CreateComment(c *gin.Context) {
 	}
 
 	comment.PostId = post.ID
-	comment.UserId = uint(userId)
+	comment.UserId = uint(userIdKey)
 
 	if err := r.DB.Create(&comment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -124,15 +99,8 @@ func (r *Repository) CreateComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"status": "success",
-		"data": gin.H{
-			"id":         comment.ID,
-			"user_id":    comment.UserId,
-			"content":    comment.Content,
-			"created_at": comment.CreatedAt,
-			"updated_at": comment.UpdatedAt,
-			"post_id":    comment.PostId,
-		},
+		"status":  "success",
+		"data":    comment,
 		"message": "you succefully created a new comment",
 	})
 }
@@ -142,19 +110,9 @@ func (r *Repository) UpdateComment(c *gin.Context) {
 	var foundComment models.Comment
 	var post models.Post
 
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 	id := c.Param("id")
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := c.BindJSON(&comment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -166,7 +124,7 @@ func (r *Repository) UpdateComment(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -186,7 +144,7 @@ func (r *Repository) UpdateComment(c *gin.Context) {
 		return
 	}
 
-	if foundComment.UserId != uint(userId) {
+	if foundComment.UserId != uint(userIdKey) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to update this comment",
@@ -209,15 +167,8 @@ func (r *Repository) UpdateComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"stauts": "success",
-		"data": gin.H{
-			"id":         foundComment.ID,
-			"user_id":    foundComment.UserId,
-			"content":    foundComment.Content,
-			"created_at": foundComment.CreatedAt,
-			"updated_at": foundComment.UpdatedAt,
-			"post_id":    foundComment.PostId,
-		},
+		"stauts":  "success",
+		"data":    foundComment,
 		"message": "you succefully update comment by id",
 	})
 }
@@ -226,21 +177,11 @@ func (r *Repository) DeleteComment(c *gin.Context) {
 	var post models.Post
 	var comment models.Comment
 
-	postId := c.Param("post_id")
+	slug := c.Param("slug")
 	id := c.Param("id")
-	userId, err := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while converting uid from session",
-		})
-
-		return
-	}
-
-	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", postId)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -260,7 +201,7 @@ func (r *Repository) DeleteComment(c *gin.Context) {
 		return
 	}
 
-	if comment.UserId != uint(userId) {
+	if comment.UserId != uint(userIdKey) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to delete this post-reaction",
