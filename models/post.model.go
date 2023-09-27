@@ -11,7 +11,8 @@ type Post struct {
 	PreviewUrl    string         `json:"preview_url"`
 	UserId        uint           `json:"user_id"`
 	User          User           `gorm:"foreignKey:UserId"`
-	IsBanned      bool           `json:"is_banned"`
 	ViewsCount    int            `json:"views_count"`
-	PostReactions []PostReaction `gorm:"foreignKey:post_id"`
+	PostReactions []PostReaction `json:"-" gorm:"foreignKey:post_id"`
+	Comments      []Comment      `json:"-" gorm:"foreignKey:post_id"`
+	Tags          []Tag          `json:"tags" gorm:"foreignKey:post_id"`
 }

@@ -8,5 +8,5 @@ type Token struct {
 	RefreshToken string `json:"refresh_token"`
 	UserAgent    string `json:"user_agent"`
 	UserId       uint   `json:"user_id"`
-	User         User   `gorm:"primaryKey:id"`
+	User         User   `gorm:"foreignKey:UserId"`
 }
