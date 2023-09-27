@@ -70,14 +70,14 @@ func CreateTokens(
 	signedToken string,
 	signedRefreshToken string,
 	userAgent string,
-	userId uint,
 	db *gorm.DB,
+	userId uint,
 ) (models.Token, error) {
 	token := models.Token{
 		AccessToken:  signedToken,
 		RefreshToken: signedRefreshToken,
-		UserId:       userId,
 		UserAgent:    userAgent,
+		UserId:       userId,
 	}
 
 	if err := db.Create(&token).Error; err != nil {
