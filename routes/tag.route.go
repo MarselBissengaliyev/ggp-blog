@@ -13,7 +13,6 @@ func RegisterTagStoreRoutes(rg *gin.RouterGroup, r *repositories.Repository) {
 
 	privateRoutes := routes.Group("/", middlewares.Authenticate(r))
 	
-	privateRoutes.POST("/", r.CreateTag)
-	privateRoutes.PUT("/:tag_id", r.UpdateTag)
-	privateRoutes.DELETE("/:tag_id", r.DeleteTag)
+	privateRoutes.PUT("/", r.UpdateTags)
+	privateRoutes.PUT("/", r.DeleteTag)
 }
