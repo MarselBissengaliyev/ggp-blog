@@ -13,7 +13,6 @@ func (r *Repository) GetTags(c *gin.Context) {
 	var tags []models.Tag
 	var post models.Post
 	slug := c.Param("slug")
-	uid, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -27,7 +26,7 @@ func (r *Repository) GetTags(c *gin.Context) {
 
 	if err := r.DB.Find(
 		&tags,
-		fmt.Sprintf("post_id = %d AND user_id = %d", post.ID, uint(uid)),
+		fmt.Sprintf("post_id = %d", post.ID),
 	).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "success",
@@ -38,21 +37,30 @@ func (r *Repository) GetTags(c *gin.Context) {
 		return
 	}
 
+	var result []gin.H
+
+	for _, tag := range tags {
+		result = append(result, gin.H{
+			"id":        tag.ID,
+			"name":      tag.Name,
+			"post_slug": slug,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    tags,
+		"data":    result,
 		"message": "you succesully got tags by id",
 	})
 }
 
-func (r *Repository) CreateTag(c *gin.Context) {
+func (r *Repository) UpdateTags(c *gin.Context) {
 	var post models.Post
-	var tag models.Tag
-	var tagsCount int64
+	var tags []models.Tag
 	slug := c.Param("slug")
 	uid, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err := c.BindJSON(&tag); err != nil {
+	if err := c.BindJSON(&tags); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -72,7 +80,7 @@ func (r *Repository) CreateTag(c *gin.Context) {
 		return
 	}
 
-	if post.ID != uint(uid) {
+	if post.UserId != uint(uid) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to update this post",
@@ -82,109 +90,37 @@ func (r *Repository) CreateTag(c *gin.Context) {
 		return
 	}
 
-	r.DB.Model(models.Tag{}).Where(
-		"user_id = ? AND post_id = ? AND name = ?",
-		uid, post.ID, tag.Name,
-	).Count(&tagsCount)
-
-	if tagsCount > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   "this tag already exists",
-			"message": "error occured while tag",
-		})
-		return
-	}
-
-	tag.PostId = post.ID
-
-	if err := r.DB.Create(&tag).Error; err != nil {
+	if err := r.DB.Where("post_id = ?", post.ID).Updates(&tags).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while creating tag",
-		})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"status":  "success",
-		"data":    tag,
-		"message": "you succefully created tag",
-	})
-}
-
-func (r *Repository) UpdateTag(c *gin.Context) {
-	var post models.Post
-	var tag models.Tag
-	var foundTag models.Tag
-	slug := c.Param("slug")
-	tagId := c.Param("tag_id")
-	uid, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
-
-	if err := c.BindJSON(&tag); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while binding tag json",
+			"message": "error occured while updating tags",
 		})
 
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while finding post by slug",
+	var result []gin.H
+
+	for _, tag := range tags {
+		result = append(result, gin.H{
+			"id":        tag.ID,
+			"name":      tag.Name,
+			"post_slug": slug,
 		})
-
-		return
-	}
-
-	if post.ID != uint(uid) {
-		c.JSON(http.StatusForbidden, gin.H{
-			"status":  "failed",
-			"error":   "you don't have rights to update this post",
-			"message": "error occured while verifying author of post",
-		})
-
-		return
-	}
-
-	if err := r.DB.First(&foundTag, fmt.Sprintf("id = '%s'", tagId)).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"stauts":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while finding tag by id",
-		})
-
-		return
-	}
-
-	foundTag.Name = tag.Name
-	if err := r.DB.Save(&foundTag).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while updating tag",
-		})
-
-		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    foundTag,
-		"message": "you succefully update tag",
+		"data":    result,
+		"message": "you succefully update tags",
 	})
 }
 
 func (r *Repository) DeleteTag(c *gin.Context) {
 	var post models.Post
-	var tag models.Tag
+	var tags []models.Tag
 	slug := c.Param("slug")
-	tagId := c.Param("tag_id")
 	uid, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
 	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
@@ -197,7 +133,7 @@ func (r *Repository) DeleteTag(c *gin.Context) {
 		return
 	}
 
-	if post.ID != uint(uid) {
+	if post.UserId != uint(uid) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"status":  "failed",
 			"error":   "you don't have rights to update this post",
@@ -207,21 +143,11 @@ func (r *Repository) DeleteTag(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&tag, fmt.Sprintf("id = '%s'", tagId)).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"stauts":  "failed",
-			"error":   err.Error(),
-			"message": "error occured while finding tag by id",
-		})
-
-		return
-	}
-
-	if err := r.DB.Delete(&tag, fmt.Sprintf("id = '%s'", tagId)).Error; err != nil {
+	if err := r.DB.Where("post_id = ?", post.ID).Delete(&tags).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
-			"message": "error occured while delete tag",
+			"message": "error occured while delete tags",
 		})
 
 		return
@@ -229,6 +155,6 @@ func (r *Repository) DeleteTag(c *gin.Context) {
 
 	c.JSON(http.StatusNoContent, gin.H{
 		"status":  "success",
-		"message": "you succefully delete tag by id",
+		"message": "you succefully delete tags",
 	})
 }

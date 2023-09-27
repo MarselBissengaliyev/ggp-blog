@@ -42,7 +42,7 @@ func (r *Repository) GetComments(c *gin.Context) {
 		"%s %s",
 		orderBy,
 		orderType,
-	)).Find(&comments).Error; err != nil {
+	)).Preload("User").Find(&comments).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -52,9 +52,23 @@ func (r *Repository) GetComments(c *gin.Context) {
 		return
 	}
 
+	var result []gin.H
+
+	// Loop through the fetched posts and get the count of PostReactions for each post
+	for _, comment := range comments {
+		result = append(result, gin.H{
+			"id":         comment.ID,
+			"content":    comment.Content,
+			"author":     comment.User.UserName,
+			"post_slug":  slug,
+			"created_at": comment.CreatedAt,
+			"updated_at": comment.UpdatedAt,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    comments,
+		"data":    result,
 		"message": "you succefully got posts",
 	})
 }
@@ -63,8 +77,9 @@ func (r *Repository) CreateComment(c *gin.Context) {
 	var comment models.Comment
 	var post models.Post
 
-	slug := c.Param("post_id")
+	slug := c.Param("slug")
 	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
 
 	if err := c.BindJSON(&comment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -99,8 +114,15 @@ func (r *Repository) CreateComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"status":  "success",
-		"data":    comment,
+		"status": "success",
+		"data": gin.H{
+			"id":         comment.ID,
+			"content":    comment.Content,
+			"author":     userNameKey,
+			"post_slug":  slug,
+			"created_at": comment.CreatedAt,
+			"updated_at": comment.UpdatedAt,
+		},
 		"message": "you succefully created a new comment",
 	})
 }
@@ -113,6 +135,7 @@ func (r *Repository) UpdateComment(c *gin.Context) {
 	slug := c.Param("slug")
 	id := c.Param("id")
 	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
 
 	if err := c.BindJSON(&comment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -167,8 +190,15 @@ func (r *Repository) UpdateComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"stauts":  "success",
-		"data":    foundComment,
+		"stauts": "success",
+		"data": gin.H{
+			"id":         foundComment.ID,
+			"content":    foundComment.Content,
+			"author":     userNameKey,
+			"post_slug":  slug,
+			"created_at": foundComment.CreatedAt,
+			"updated_at": foundComment.UpdatedAt,
+		},
 		"message": "you succefully update comment by id",
 	})
 }

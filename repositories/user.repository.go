@@ -50,9 +50,22 @@ func (r *Repository) GetUsers(c *gin.Context) {
 		return
 	}
 
+	var result []gin.H
+
+	for _, user := range users {
+		result = append(result, gin.H{
+			"user_name":  user.UserName,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"email":      user.Email,
+			"is_banned":  user.IsBanned,
+			"ban_time":   user.BanTime,
+		})
+	}
+
 	c.JSON(http.StatusNotFound, gin.H{
 		"status":  "success",
-		"data":    users,
+		"data":    result,
 		"message": "you succefully got users",
 	})
 }
@@ -72,8 +85,15 @@ func (r *Repository) GetUserByUsername(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"data":    user,
+		"status": "success",
+		"data": gin.H{
+			"user_name":  user.UserName,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"email":      user.Email,
+			"is_banned":  user.IsBanned,
+			"ban_time":   user.BanTime,
+		},
 		"message": "you succefully got user by user_name",
 	})
 }
@@ -155,7 +175,7 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 
 		utils.SendEmail(&user, &emailData, r.Config)
 
-		message := "you succefully update user. We sent an email with a verification code to " + user.Email
+		message := "you succefully update user, we sent an email with a verification code to " + user.Email
 
 		if err := r.DB.Where("id = ?", uid).Updates(&user).Error; err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -168,8 +188,15 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"status":  "success",
-			"data":    user,
+			"status": "success",
+			"data": gin.H{
+				"user_name":  user.UserName,
+				"first_name": user.FirstName,
+				"last_name":  user.LastName,
+				"email":      user.Email,
+				"is_banned":  user.IsBanned,
+				"ban_time":   user.BanTime,
+			},
 			"message": message,
 		})
 
@@ -187,8 +214,15 @@ func (r *Repository) UpdateUserByUsername(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"data":    user,
+		"status": "success",
+		"data": gin.H{
+			"user_name":  user.UserName,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"email":      user.Email,
+			"is_banned":  user.IsBanned,
+			"ban_time":   user.BanTime,
+		},
 		"message": "you succefully update user",
 	})
 }

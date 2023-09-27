@@ -6,12 +6,18 @@ import (
 	"strconv"
 
 	"github.com/MarselBissengaliyev/ggp-blog/models"
+	"github.com/MarselBissengaliyev/ggp-blog/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/gosimple/slug"
+	"gorm.io/gorm"
 )
 
 func (r *Repository) GetPosts(c *gin.Context) {
 	var posts []models.Post
+
+	validOrderByValues := []string{"views_count", "created_at", "updated_at"}
+	validOrderTypeValues := []string{"desc", "asc"}
+	arrayUtil := new(utils.ArrayUtil)
 
 	limit := 5
 
@@ -25,13 +31,13 @@ func (r *Repository) GetPosts(c *gin.Context) {
 
 	orderBy := c.Query("order_by")
 
-	if orderBy == "" {
+	if !arrayUtil.IsValid(orderBy, validOrderByValues) {
 		orderBy = "views_count"
 	}
 
 	orderType := c.Query("order_type")
 
-	if orderType == "" {
+	if !arrayUtil.IsValid(orderType, validOrderTypeValues) {
 		orderType = "desc"
 	}
 
@@ -39,7 +45,10 @@ func (r *Repository) GetPosts(c *gin.Context) {
 		"%s %s",
 		orderBy,
 		orderType,
-	)).Preload("User").Find(&posts).Error; err != nil {
+	)).Preload("User").Preload("PostReactions").Preload("Comments").Find(
+		&posts,
+		"is_banned = false",
+	).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -49,21 +58,47 @@ func (r *Repository) GetPosts(c *gin.Context) {
 		return
 	}
 
+	var result []gin.H
+
+	// Loop through the fetched posts and get the count of PostReactions for each post
+	for i, post := range posts {
+		var reactionCount int64 = r.DB.Model(&posts[i]).Association("PostReactions").Count()
+		var commentCount int64 = r.DB.Model(&posts[i]).Association("Comments").Count()
+
+		result = append(result, gin.H{
+			"title":           post.Title,
+			"description":     post.Description,
+			"slug":            post.Slug,
+			"views_count":     post.ViewsCount,
+			"reactions_count": reactionCount,
+			"comments_count":  commentCount,
+			"content":         post.PreviewUrl,
+			"author":          post.User.UserName,
+			"tags":            post.Tags,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    posts,
+		"data":    result,
 		"message": "you succefully got posts",
 	})
 }
 
 func (r *Repository) GetPostBySlug(c *gin.Context) {
 	var post models.Post
+	var reactionsCount int64
+	var commentCount int64
 
 	slug := c.Param("slug")
 
-	if err := r.DB.Preload("User").First(
+	if err := r.DB.Preload("User").Preload("Comments", func(db *gorm.DB) *gorm.DB {
+		return db.Model(&models.Comment{}).Count(&commentCount)
+	}).Preload("PostReactions", func(db *gorm.DB) *gorm.DB {
+		return db.Model(&models.PostReaction{}).Count(&reactionsCount)
+	}).First(
 		&post,
-		fmt.Sprintf("slug = '%s'", slug),
+		fmt.Sprintf("slug = '%s' AND is_banned= false", slug),
 	).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
@@ -86,8 +121,17 @@ func (r *Repository) GetPostBySlug(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"stauts":  "success",
-		"data":    post,
+		"stauts": "success",
+		"data": gin.H{
+			"title":           post.Title,
+			"description":     post.Description,
+			"slug":            post.Slug,
+			"views_count":     post.ViewsCount,
+			"reactions_count": reactionsCount,
+			"comments_count":  commentCount,
+			"content":         post.PreviewUrl,
+			"author":          post.User.UserName,
+		},
 		"message": "you succefully found post by slug",
 	})
 }
@@ -97,6 +141,7 @@ func (r *Repository) CreatePost(c *gin.Context) {
 	var count int64
 
 	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
 
 	if err := c.BindJSON(&post); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -109,7 +154,6 @@ func (r *Repository) CreatePost(c *gin.Context) {
 	}
 
 	post.ViewsCount = 0
-	post.IsBanned = false
 	post.UserId = uint(userIdKey)
 
 	slug := slug.Make(post.Title)
@@ -135,6 +179,14 @@ func (r *Repository) CreatePost(c *gin.Context) {
 		return
 	}
 
+	var tags []gin.H
+	for _, tag := range post.Tags {
+		tags = append(tags, gin.H{
+			"name":      tag.Name,
+			"post_slug": slug,
+		})
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"status": "success",
 		"data": gin.H{
@@ -143,9 +195,9 @@ func (r *Repository) CreatePost(c *gin.Context) {
 			"description": post.Description,
 			"content":     post.Content,
 			"preview_url": post.PreviewUrl,
-			"user_id":     post.UserId,
-			"is_banned":   post.IsBanned,
+			"author":      userNameKey,
 			"views_count": post.ViewsCount,
+			"tags":        tags,
 		},
 		"message": "you succefully created post",
 	})
@@ -154,11 +206,17 @@ func (r *Repository) CreatePost(c *gin.Context) {
 func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 	var post models.Post
 	var foundPost models.Post
+	var reactionsCount int64
+	var commentCount int64
 
 	slug := c.Param("slug")
 	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err := r.DB.Preload("User").First(&foundPost, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
+	if err := r.DB.Preload("User").Preload("Comments", func(db *gorm.DB) *gorm.DB {
+		return db.Model(&models.Comment{}).Count(&commentCount)
+	}).Preload("PostReactions", func(db *gorm.DB) *gorm.DB {
+		return db.Model(&models.PostReaction{}).Count(&reactionsCount)
+	}).First(&foundPost, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"stauts":  "failed",
 			"error":   err.Error(),
@@ -188,7 +246,6 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 		return
 	}
 
-	post.IsBanned = foundPost.IsBanned
 	post.Slug = foundPost.Slug
 
 	if err := r.DB.Where("id = ?", foundPost.ID).Updates(&post).Error; err != nil {
@@ -202,8 +259,17 @@ func (r *Repository) UpdatePostBySlug(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"data":    post,
+		"status": "success",
+		"data": gin.H{
+			"title":           post.Title,
+			"description":     post.Description,
+			"slug":            post.Slug,
+			"views_count":     foundPost.ViewsCount,
+			"reactions_count": reactionsCount,
+			"comments_count":  commentCount,
+			"content":         post.PreviewUrl,
+			"author":          foundPost.User.UserName,
+		},
 		"message": "you succefully update post",
 	})
 }

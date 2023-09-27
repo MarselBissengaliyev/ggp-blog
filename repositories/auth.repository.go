@@ -110,8 +110,8 @@ func (r *Repository) Login(c *gin.Context) {
 	if !passwordIsValid {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"status":  "failed",
-			"error":   "error occured while login",
-			"message": msg,
+			"error":   msg,
+			"message": "error occured while login",
 		})
 		return
 	}
@@ -122,7 +122,6 @@ func (r *Repository) Login(c *gin.Context) {
 			"error":   "email not verificated",
 			"message": "Please verify your email",
 		})
-		c.Abort()
 		return
 	}
 

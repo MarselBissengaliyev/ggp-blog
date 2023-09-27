@@ -42,7 +42,7 @@ func (r *Repository) GetReactions(c *gin.Context) {
 		"%s %s",
 		orderBy,
 		orderType,
-	)).Find(&reactions).Error; err != nil {
+	)).Preload("Post").Preload("User").Find(&reactions, fmt.Sprintf("post_id = %d", post.ID)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -52,9 +52,21 @@ func (r *Repository) GetReactions(c *gin.Context) {
 		return
 	}
 
+	var result []gin.H
+
+	for _, reaction := range reactions {
+		result = append(result, gin.H{
+			"id":          reaction.ID,
+			"is_liked":    reaction.IsLiked,
+			"is_disliked": reaction.IsDisliked,
+			"author":      reaction.User.UserName,
+			"post_slug":   reaction.Post.Slug,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"data":    reactions,
+		"data":    result,
 		"message": "you succefully got posts",
 	})
 }
@@ -66,6 +78,7 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 
 	slug := c.Param("slug")
 	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
 
 	if err := c.BindJSON(&reaction); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -111,8 +124,14 @@ func (r *Repository) CreateReaction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"status":  "success",
-		"data":    reaction,
+		"status": "success",
+		"data": gin.H{
+			"id":          reaction.ID,
+			"is_liked":    reaction.IsLiked,
+			"is_disliked": reaction.IsDisliked,
+			"author":      userNameKey,
+			"post_slug":   slug,
+		},
 		"message": "you succefully created a new reaction",
 	})
 }
@@ -125,6 +144,7 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 	slug := c.Param("slug")
 	reactionId := c.Param("reaction_id")
 	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
+	userNameKey := fmt.Sprint(c.Keys["user_name"])
 
 	if err := c.BindJSON(&reaction); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -136,7 +156,7 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 		return
 	}
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", slug)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
@@ -180,8 +200,14 @@ func (r *Repository) UpdateReaction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"stauts":  "success",
-		"data":    foundReaction,
+		"stauts": "success",
+		"data": gin.H{
+			"id":          foundReaction.ID,
+			"is_liked":    foundReaction.IsLiked,
+			"is_disliked": foundReaction.IsDisliked,
+			"author":      userNameKey,
+			"post_slug":   slug,
+		},
 		"message": "you succefully update reaction by id",
 	})
 }
@@ -194,7 +220,7 @@ func (r *Repository) DeleteReaction(c *gin.Context) {
 	reactionId := c.Param("reaction_id")
 	userIdKey, _ := strconv.Atoi(fmt.Sprint(c.Keys["uid"]))
 
-	if err := r.DB.First(&post, fmt.Sprintf("id = '%s'", slug)).Error; err != nil {
+	if err := r.DB.First(&post, fmt.Sprintf("slug = '%s'", slug)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  "failed",
 			"error":   err.Error(),
